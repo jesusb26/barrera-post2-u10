@@ -1,52 +1,72 @@
-# Productos Service – Análisis SonarQube
+# Productos Service – Análisis SonarQube (Post-Contenido 2)
+[![CI with SonarQube](https://github.com/jesusb26/barrera-post2-u10/actions/workflows/ci.yml/badge.svg)](https://github.com/jesusb26/barrera-post2-u10/actions/workflows/ci.yml)
+## Comparativa: Antes vs Después de las correcciones
 
-## Estado inicial del análisis
+| Métrica | Estado inicial (Post1) | Estado después de correcciones (Post2) | Mejora |
+|---------|------------------------|----------------------------------------|--------|
+| Reliability Issues (Bugs) | 1 | 0 | ✅ Eliminado |
+| Maintainability Issues (Code Smells) | 3 | 0 | ✅ Eliminados |
+| Coverage | 3.1% | 6.3% | ⚠️ Por debajo del mínimo (60%) |
+| Duplicated Lines (%) | 0% | 0% | ✅ Sin duplicación |
 
-| Categoría | Cantidad | Rating |
-|-----------|----------|--------|
-| Bugs | 1 | C |
-| Vulnerabilidades | 0 | A |
-| Code Smells | 3 | D |
-| Cobertura | 3.1% | — |
+> **Nota**: La cobertura no alcanza el 60% requerido por el Quality Gate porque no se agregaron pruebas unitarias. El resto de las condiciones del Quality Gate se cumplen.
 
-## Hallazgos principales identificados
+## Quality Gate personalizado: "Estándar Universidad"
 
-### Bug 1: Posible NullPointerException en `getEstado()` de la entidad Producto
-- **Archivo**: `Producto.java`, línea 17 (método `getEstado()`)
-- **Descripción**: El método maneja `stock == null` como "DESCONOCIDO", pero luego hay una rama `return "DESCONOCIDO"` al final que nunca se ejecuta (inalcanzable). Además, la lógica de negocio dentro de una entidad JPA es un code smell en sí mismo.
-- **Severidad**: Major (según lo muestra SonarQube en Reliability issues)
+Se configuró un Quality Gate con las siguientes condiciones (adaptadas a la versión de SonarQube MQR Mode):
 
-### Code Smell 1: Inyección de dependencias por campo (Field injection)
-- **Archivo**: `ProductoService.java`, línea 14
-- **Descripción**: Se usa `@Autowired` directamente sobre un campo. Esto dificulta las pruebas unitarias y viola el principio de inmutabilidad. SonarQube recomienda usar inyección por constructor.
-- **Severidad**: Medium (Maintainability)
+| Condición solicitada | Métrica utilizada | Operador | Valor |
+|----------------------|-------------------|----------|-------|
+| Bugs > 0 | Reliability Issues | > | 0 |
+| Code Smells > 5 | Maintainability Issues | > | 5 |
+| Coverage < 60% | Coverage | < | 60% |
+| Duplicated Lines (%) > 5% | Duplicated Lines (%) | > | 5% |
 
-### Code Smell 2: Parámetros de método no utilizados
-- **Archivo**: `ProductoService.java`, línea 18 (método `procesarProducto`)
-- **Descripción**: Los parámetros `cat`, `activo` y `proveedor` se declaran pero nunca se usan dentro del método. Esto aumenta la complejidad sin necesidad y puede llevar a confusión.
-- **Severidad**: Medium (Maintainability)
+**Estado actual del Quality Gate**: ❌ **FALLIDO** (solo por cobertura, actual 6.3% < 60%).
 
-### Code Smell 3: Comentario TODO pendiente
-- **Archivo**: `ProductoService.java`, línea 40 (aproximadamente)
-- **Descripción**: Existe un comentario `// TODO: implementar lógica de categoría y proveedor` que indica trabajo incompleto. SonarQube marca los TODOs como code smells porque representan tareas pendientes que pueden afectar la calidad si se olvidan.
-- **Severidad**: Minor
+## Correcciones aplicadas
 
-## Capturas del dashboard
+### Bug crítico: `orElse(null)` en `ProductoService.buscar()`
+- **Antes**: retornaba `null` si el producto no existía.
+- **Después**: lanza `NoSuchElementException` con mensaje descriptivo.
+- **Resultado**: Se eliminó el Reliability Issue.
 
+### Code Smell 1: Inyección por campo (`@Autowired`)
+- **Antes**: campo `@Autowired private ProductoRepository repo;`
+- **Después**: inyección por constructor con campo `private final ProductoRepository productRepository;`
+- **Resultado**: Se eliminó el Code Smell de inyección de dependencias.
+
+### Code Smell 2: Método largo con alta complejidad
+- **Antes**: método `procesarProducto` con múltiples validaciones y alta complejidad ciclomática.
+- **Después**: se extrajo la validación a un método privado `validarDatos(...)`.
+- **Resultado**: Se redujo la complejidad y se mejoró la mantenibilidad.
+
+### Code Smell 3: Parámetros no utilizados y comentario TODO
+- **Antes**: parámetros `cat`, `activo`, `proveedor` sin uso y `// TODO`.
+- **Después**: se eliminaron los parámetros no necesarios de la firma del método (se mantuvieron solo `nombre`, `precio`, `stock`) y se removió el `TODO`.
+- **Resultado**: Código más limpio y sin advertencias de SonarQube.
+
+## Ejecución del segundo análisis
+
+Se ejecutó el análisis después de las correcciones:
+
+    ```bash
+    mvn clean verify sonar:sonar -Dsonar.token=TU_TOKEN
+    ```
+El dashboard muestra que:
+
+Reliability Issues: 0 ✅
+Maintainability Issues: 0 ✅
+Coverage: 6.3% (sin cambios significativos)
+
+## Capturas del primer dashboard
 ![Vista general del proyecto](docs/dashboard-overview.png)
 ![Quality Gate Passed](docs/dashboard-quality-gate.png)
 ![Issue: Field injection](docs/issue-field-injection.png)
 ![Issue: Unused parameters](docs/issue-unused-parameters.png)
 ![Issue: TODO comment](docs/issue-todo-comment.png)
 
-## Instrucciones para ejecutar el análisis localmente
-
-1. Asegúrate de tener Docker Desktop ejecutándose y SonarQube corriendo:
-   ```bash
-   docker start sonarqube
-   ```
-2. En la raíz del proyecto, ejecuta:
-   ```bash
-   mvn clean verify sonar:sonar -Dsonar.token=TU_TOKEN
-   ```
-3. Abre http://localhost:9000 y ve al proyecto productos-service para ver los resultados.
+## Capturas del segundo dashboard
+![alt text](docs/image.png)
+![alt text](docs/image-1.png)
+![alt text](docs/image-2.png)
